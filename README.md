@@ -7,8 +7,8 @@
 mkdir build
 cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
-make
+cmake --build .
 # cp path/to/your_test.jpg smp.jpg
 ./PiKtures
 ```
-And you will have a salted picture. ~~boring~~
+And you will have a set of *noised* images.
