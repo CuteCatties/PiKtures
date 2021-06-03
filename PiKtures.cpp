@@ -14,7 +14,7 @@ int main(){
     Mat gaussianed = srcImage.clone();
     PiKtures::Rowdy::gaussian(gaussianed, 0.0, 15.0);
     Mat blind_watermarked = srcImage.clone();
-    PiKtures::Rowdy::blindWatermark(blind_watermarked, "CuteKitties!", 1);
+    PiKtures::Rowdy::blindWatermark(blind_watermarked, "CuteKitties!", 1, 500);
     Mat deblind_watermarked = blind_watermarked.clone();
     PiKtures::Rowdy::uncoverWatermark(deblind_watermarked);
 	imwrite("salted.jpg", salted);

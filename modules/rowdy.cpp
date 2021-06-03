@@ -1,7 +1,11 @@
 #include<rowdy.hpp>
+#include<utility.hpp>
 #include<stdexcept>
 #include<random>
 #include<vector>
+#include<iostream>
+using std::cout;
+using std::endl;
 namespace PiKtures::Rowdy{
     using __rowdy_pixel_t = cv::Point3_<uint8_t>;
     constexpr double POSSIB_RANDOM_BASE = 1.0;
@@ -76,7 +80,8 @@ void PiKtures::Rowdy::gaussian(Mat& image, double expectation, double deviation)
     generator.fill(noise_map, cv::RNG::NORMAL, expectation, deviation);
     image += noise_map;
 }
-void PiKtures::Rowdy::blindWatermark(Mat& image, const char* const watermark, double size_scale){
+void PiKtures::Rowdy::blindWatermark(Mat& image, const char* const watermark, double size_scale, double power){
+    const static cv::Scalar color(255, 255, 255);
     if(checkImage(image)) throw std::runtime_error("panic: Image is invalid.");
     Mat channles[4];
     cv::split(image, channles);
@@ -85,10 +90,17 @@ void PiKtures::Rowdy::blindWatermark(Mat& image, const char* const watermark, do
     Mat operational_matrix;
     cv::merge(channles + 2, 2, operational_matrix);
     cv::dft(operational_matrix, operational_matrix);
-    cv::putText(operational_matrix, watermark, cv::Point(50, 50), cv::FONT_HERSHEY_SIMPLEX, size_scale, cv::Scalar(255, 255, 255));
-    cv::flip(operational_matrix, operational_matrix, -1);
-    cv::putText(operational_matrix, watermark, cv::Point(50, 50), cv::FONT_HERSHEY_SIMPLEX, size_scale, cv::Scalar(255, 255, 255));
-    cv::flip(operational_matrix, operational_matrix, -1);
+    int place_holder;
+    cv::Size watermark_size = cv::getTextSize(watermark, cv::FONT_HERSHEY_SIMPLEX, size_scale, 1, &place_holder);
+    Mat text_matrix = PiKtures::Utility::alignImage(operational_matrix);
+    Mat real_matrix(Mat::zeros(text_matrix.size(), text_matrix.type()));
+    cv::Point locate((real_matrix.cols >> 1) - watermark_size.width, (real_matrix.rows >> 1) - watermark_size.height);
+    if(locate.x < 0 || locate.y < 0) throw std::runtime_error("panic: Watermark too big for this image.");
+    cv::putText(real_matrix, watermark, locate, cv::FONT_HERSHEY_SIMPLEX, size_scale, color);
+    cv::flip(real_matrix, real_matrix, -1);
+    cv::putText(real_matrix, watermark, locate, cv::FONT_HERSHEY_SIMPLEX, size_scale, color);
+    cv::flip(real_matrix, real_matrix, -1);
+    cv::scaleAdd(real_matrix, power, text_matrix, text_matrix);
     cv::idft(operational_matrix, operational_matrix, cv::DFT_SCALE | cv::DFT_REAL_OUTPUT);
     operational_matrix.convertTo(channles[2], CV_8U);
     cv::merge(channles, 3, image);
@@ -96,33 +108,11 @@ void PiKtures::Rowdy::blindWatermark(Mat& image, const char* const watermark, do
 void PiKtures::Rowdy::uncoverWatermark(Mat& image){
     if(checkImage(image)) throw std::runtime_error("panic: Image is invalid.");
     Mat channles[4];
-    Mat buffer[4];
     cv::split(image, channles);
     channles[2].convertTo(channles[2], CV_32F);
     channles[3] = Mat::zeros(image.size(), CV_32F);
     Mat operational_matrix;
     cv::merge(channles + 2, 2, operational_matrix);
     cv::dft(operational_matrix, operational_matrix);
-    cv::split(operational_matrix, buffer);
-    cv::magnitude(buffer[0], buffer[1], buffer[0]);
-    Mat& m = buffer[0];
-    cv::add(Mat::ones(m.size(), CV_32F), m, m);
-    cv::log(m, m);
-    m = m(cv::Rect(0, 0, m.cols & -2, m.rows & -2));
-	int half_width = m.cols >> 1;
-	int half_height = m.rows >> 1;
-	Mat s0(m, cv::Rect(0, 0, half_width, half_height));
-	Mat s1(m, cv::Rect(half_width, 0, half_width, half_height));
-	Mat s2(m, cv::Rect(0, half_height, half_width, half_height));
-	Mat s3(m, cv::Rect(half_width, half_height, half_width, half_height));
-	Mat temp_buffer;
-	s0.copyTo(temp_buffer);
-	s3.copyTo(s0);
-	temp_buffer.copyTo(s3);
-	s1.copyTo(temp_buffer);
-	s2.copyTo(s1);
-	temp_buffer.copyTo(s2);
-    m.convertTo(m, CV_8UC1);
-    cv::normalize(m, m, 0, 255, cv::NORM_MINMAX, CV_8UC1);
-    image = m;
+    image = PiKtures::Utility::visualizeSpectrum(PiKtures::Utility::transformSpectrum(operational_matrix));
 }
