@@ -8,6 +8,8 @@ using std::cout;
 using std::endl;
 namespace PiKtures::Rowdy{
     using __rowdy_pixel_t = cv::Point3_<uint8_t>;
+    using PiKtures::Utility::checkPossibility;
+    using PiKtures::Utility::checkImage;
     constexpr double POSSIB_RANDOM_BASE = 1.0;
     constexpr double POSSIB_RANDOM_RARE = 2.0;
     constexpr uint8_t CHANNEL_MIN = 0;
@@ -21,24 +23,6 @@ namespace PiKtures::Rowdy{
     static auto& getOpenCVRandomGenerator(){
         static cv::RNG generator = cv::RNG(std::random_device()());
         return generator;
-    }
-    template<typename T>
-    static inline bool checkPossibility(const std::vector<T>& possibilities){
-        T sum = 0.0;
-        for(const auto& x: possibilities){
-            if(x >= 1.0 || x <= 0.0) return true;
-            if((sum += x) >= 1.0) return true;
-        }
-        return false;
-    }
-    static inline bool checkImage(Mat& image){
-        if(image.channels() == 4){   // assume that picture with 4 channels HAS RGBA-color
-            // cruelly elimate the alpha channel
-            cv::cvtColor(image, image, cv::COLOR_BGRA2BGR);
-        }else if(image.channels() != 3) return true;
-        // Of course, we assume that picture with 3 channels HAS RGB-color.
-        // NO EXCEPTION
-        return false;
     }
 }
 void PiKtures::Rowdy::salt(Mat& image, double p_black, double p_white){
