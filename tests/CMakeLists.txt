@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.20)
+add_executable(rowdy_test rowdy_test.cpp)
+target_link_libraries(rowdy_test rowdy)
+add_executable(detector_test detector_test.cpp)
+target_link_libraries(detector_test detector)
