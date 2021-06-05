@@ -6,6 +6,7 @@ _Pragma("once");
 #include<vector>
 #include<ostream>
 #include<concepts>
+#include<string>
 namespace PiKtures::Command{
     using PiKtures::Utility::ErrorCode;
     struct CommandSpecifier;
@@ -18,7 +19,7 @@ namespace PiKtures::Command{
     struct CommandSpecifier{
         const char*const command;
         const char*const help_message;
-        std::function<ErrorCode(std::ostream&, const char*, const int, const char**)> call_back;
+        std::function<unsigned int(std::ostream&, const char*, const int, const char**)> call_back;
         ParserNode* end_of_command = nullptr;
     };
     class CommandParser{
@@ -28,7 +29,6 @@ namespace PiKtures::Command{
             std::vector<CommandSpecifier*> specifiers_;
             const char*const parser_prefix_;
 
-            CommandParser(const char*const);
             void insertCommand(CommandSpecifier&);
             void finalizeCommands();
             ParserNode* locateExact(const char*const);
@@ -36,10 +36,11 @@ namespace PiKtures::Command{
             void foreachSubtreeCommandSpecifier(ParserNode*, F&&, Args&&...args);
             void freeLink(ParserNode*);
         public:
+            CommandParser(const char*const);
             ~CommandParser();
-            static CommandParser& getInstance(const char*const);
             void insertCommand(std::vector<CommandSpecifier>&);
-            ErrorCode parse(const char*const, std::ostream&, const int, const char**);
+            unsigned int parse(const char*const, std::ostream&, const int, const char**);
             void listCommands(const char*const, std::ostream&, const char*const, bool, size_t);
     };
+    void splitCommandLine(const std::string&, std::vector<std::string>&);
 }

@@ -3,13 +3,11 @@
 #include<stdexcept>
 #include<random>
 #include<vector>
-#include<iostream>
-using std::cout;
-using std::endl;
 namespace PiKtures::Rowdy{
     using __rowdy_pixel_t = cv::Point3_<uint8_t>;
-    using PiKtures::Utility::checkPossibility;
+    using PiKtures::Utility::checkProbability;
     using PiKtures::Utility::checkImage;
+    using PiKtures::Utility::ErrorCode;
     constexpr double POSSIB_RANDOM_BASE = 1.0;
     constexpr double POSSIB_RANDOM_RARE = 2.0;
     constexpr uint8_t CHANNEL_MIN = 0;
@@ -26,8 +24,8 @@ namespace PiKtures::Rowdy{
     }
 }
 void PiKtures::Rowdy::salt(Mat& image, double p_black, double p_white){
-    if(checkPossibility(std::vector<double>({p_black, p_white}))) throw std::runtime_error("panic: Possibility is invalid.");
-    if(checkImage(image)) throw std::runtime_error("panic: Image is invalid.");
+    checkProbability(std::vector<double>({p_black, p_white}));
+    checkImage(image);
     p_black += POSSIB_RANDOM_BASE;
     p_white = POSSIB_RANDOM_RARE - p_white;
     std::uniform_real_distribution<>distributor(POSSIB_RANDOM_BASE, POSSIB_RANDOM_RARE);
@@ -41,8 +39,8 @@ void PiKtures::Rowdy::salt(Mat& image, double p_black, double p_white){
     );
 }
 void PiKtures::Rowdy::random(Mat& image, double p_noise){
-    if(checkPossibility(std::vector<double>({p_noise}))) throw std::runtime_error("panic: Possibility is invalid.");
-    if(checkImage(image)) throw std::runtime_error("panic: Image is invalid.");
+    checkProbability(std::vector<double>({p_noise}));
+    checkImage(image);
     p_noise += POSSIB_RANDOM_BASE;
     std::uniform_real_distribution<>real_distributor(POSSIB_RANDOM_BASE, POSSIB_RANDOM_RARE);
     std::uniform_int_distribution<>int_distributor(CHANNEL_MIN, CHANNEL_MAX);
@@ -57,8 +55,8 @@ void PiKtures::Rowdy::random(Mat& image, double p_noise){
     );
 }
 void PiKtures::Rowdy::gaussian(Mat& image, double expectation, double deviation){
-    if(deviation < 0) throw std::runtime_error("panic: Negative standard deviation is invalid.");
-    if(checkImage(image)) throw std::runtime_error("panic: Image is invalid.");
+    if(deviation < 0) throw ErrorCode::NEGATIVE_DEVIATION;
+    checkImage(image);
     auto& generator = getOpenCVRandomGenerator();
     Mat noise_map(image.size(), image.type());
     generator.fill(noise_map, cv::RNG::NORMAL, expectation, deviation);
@@ -66,7 +64,7 @@ void PiKtures::Rowdy::gaussian(Mat& image, double expectation, double deviation)
 }
 void PiKtures::Rowdy::blindWatermark(Mat& image, const char* const watermark, double size_scale, double power){
     const static cv::Scalar color(255, 255, 255);
-    if(checkImage(image)) throw std::runtime_error("panic: Image is invalid.");
+    checkImage(image);
     Mat channles[4];
     cv::split(image, channles);
     channles[2].convertTo(channles[2], CV_32F);
@@ -79,7 +77,7 @@ void PiKtures::Rowdy::blindWatermark(Mat& image, const char* const watermark, do
     Mat text_matrix = PiKtures::Utility::alignImage(operational_matrix);
     Mat real_matrix(Mat::zeros(text_matrix.size(), text_matrix.type()));
     cv::Point locate((real_matrix.cols >> 1) - watermark_size.width, (real_matrix.rows >> 1) - watermark_size.height);
-    if(locate.x < 0 || locate.y < 0) throw std::runtime_error("panic: Watermark too big for this image.");
+    if(locate.x < 0 || locate.y < 0) throw ErrorCode::WATERMARK_TOO_BIG;
     cv::putText(real_matrix, watermark, locate, cv::FONT_HERSHEY_SIMPLEX, size_scale, color);
     cv::flip(real_matrix, real_matrix, -1);
     cv::putText(real_matrix, watermark, locate, cv::FONT_HERSHEY_SIMPLEX, size_scale, color);
@@ -90,7 +88,7 @@ void PiKtures::Rowdy::blindWatermark(Mat& image, const char* const watermark, do
     cv::merge(channles, 3, image);
 }
 void PiKtures::Rowdy::uncoverWatermark(Mat& image){
-    if(checkImage(image)) throw std::runtime_error("panic: Image is invalid.");
+    checkImage(image);
     Mat channles[4];
     cv::split(image, channles);
     channles[2].convertTo(channles[2], CV_32F);

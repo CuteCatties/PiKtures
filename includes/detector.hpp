@@ -10,7 +10,10 @@ namespace PiKtures::Detector{
             virtual ~FaceDetector(){}
             virtual void loadModule(const char* const) = 0;
             virtual void detect(const Mat&, std::vector<Mat>&) = 0;
+            virtual bool ready()const = 0;
             static Mat transformForDetection(const Mat&);
+            static FaceDetector&& getFaceDetector();
+            static FaceDetector&& getFaceDetector(const char* const);
     };
     class OpenCVCascade: public FaceDetector{
         private:
@@ -21,5 +24,6 @@ namespace PiKtures::Detector{
             ~OpenCVCascade() = default;
             void loadModule(const char* const);
             void detect(const Mat&, std::vector<Mat>&);
+            bool ready()const;
     };
 }
