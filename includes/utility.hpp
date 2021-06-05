@@ -2,13 +2,20 @@ _Pragma("once");
 #include<opencv2/opencv.hpp>
 #include<vector>
 #include<algorithm>
+#include<concepts>
 namespace PiKtures::Utility{
+    enum class ErrorCode{
+        OK = 0,
+        COMMAND_NOT_FOUND,
+        COMMAND_AMBIGUOUS,
+        COMMAND_INVALID_PARAMETER_NUMBER
+    };
     using cv::Mat;
     Mat alignImage(const Mat&);
     inline Mat alignImage(const Mat& origin){
         return origin(cv::Rect(0, 0, origin.cols & -2, origin.rows & -2));
     }
-    template<typename T>
+    template<std::floating_point T>
     inline bool checkPossibility(const std::vector<T>& possibilities){
         T sum = 0.0;
         for(const auto& x: possibilities){
@@ -28,8 +35,8 @@ namespace PiKtures::Utility{
     }
     Mat transformSpectrum(const Mat&);
     Mat visualizeSpectrum(const Mat&);
-    template<typename F, typename...Args>
-    void applyToEachChannel(F function, Mat& result, const Mat& m, Args&&...args){
+    template<typename...Args, std::invocable<Mat&, Args...> F>
+    void applyToEachChannel(F&& function, Mat& result, const Mat& m, Args&&...args){
         std::vector<Mat> buffer;
         buffer.resize(m.channels());
         cv::split(m, buffer.data());

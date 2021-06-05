@@ -1,19 +1,24 @@
 _Pragma("once");
+#include<utility.hpp>
 #include<functional>
 #include<map>
 #include<memory>
 #include<vector>
+#include<ostream>
+#include<concepts>
 namespace PiKtures::Command{
-    constexpr int NO_SUCH_COMMAND = 42;
+    using PiKtures::Utility::ErrorCode;
     struct CommandSpecifier;
     struct ParserNode{
         ParserNode* parent = nullptr;
         std::map<char, ParserNode*> children;
+        unsigned int command_count = 0;
         CommandSpecifier* command_specifier = nullptr;
     };
     struct CommandSpecifier{
         const char*const command;
-        std::function<int(const int, const char**)> call_back;
+        const char*const help_message;
+        std::function<ErrorCode(std::ostream&, const char*, const int, const char**)> call_back;
         ParserNode* end_of_command = nullptr;
     };
     class CommandParser{
@@ -21,16 +26,20 @@ namespace PiKtures::Command{
             ParserNode top_;
             bool finalized_;
             std::vector<CommandSpecifier*> specifiers_;
+            const char*const parser_prefix_;
 
-            CommandParser();
+            CommandParser(const char*const);
             void insertCommand(CommandSpecifier&);
             void finalizeCommands();
-            CommandSpecifier* findCommandSpecifier(const char*const);
+            ParserNode* locateExact(const char*const);
+            template <typename...Args, std::invocable<CommandSpecifier*, Args...> F>
+            void foreachSubtreeCommandSpecifier(ParserNode*, F&&, Args&&...args);
             void freeLink(ParserNode*);
         public:
             ~CommandParser();
-            static CommandParser& getInstance();
+            static CommandParser& getInstance(const char*const);
             void insertCommand(std::vector<CommandSpecifier>&);
-            int parse(const char*const, const int, const char**);
+            ErrorCode parse(const char*const, std::ostream&, const int, const char**);
+            void listCommands(const char*const, std::ostream&, const char*const, bool, size_t);
     };
 }
