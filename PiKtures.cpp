@@ -297,7 +297,7 @@ vector<PiKtures::Command::CommandSpecifier> noise_commands({
         "Show help message",
         [](ostream& out, const char* pfx, const int argc, const char** argv){
             out<<pfx<<endl;
-            top_cp.listCommands("", out, "\t", true, 10);
+            noise_cp.listCommands("", out, "\t", true, 10);
             return static_cast<unsigned int>(ErrorCode::OK);
         },
         nullptr
@@ -435,7 +435,7 @@ vector<PiKtures::Command::CommandSpecifier> denoise_commands({
         "Show help message",
         [](ostream& out, const char* pfx, const int argc, const char** argv){
             out<<pfx<<endl;
-            top_cp.listCommands("", out, "\t", true, 10);
+            denoise_cp.listCommands("", out, "\t", true, 10);
             return static_cast<unsigned int>(ErrorCode::OK);
         },
         nullptr
@@ -541,7 +541,7 @@ vector<PiKtures::Command::CommandSpecifier> enhance_commands({
         "Show help message",
         [](ostream& out, const char* pfx, const int argc, const char** argv){
             out<<pfx<<endl;
-            top_cp.listCommands("", out, "\t", true, 10);
+            enhance_cp.listCommands("", out, "\t", true, 10);
             return static_cast<unsigned int>(ErrorCode::OK);
         },
         nullptr
