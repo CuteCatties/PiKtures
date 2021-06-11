@@ -4,7 +4,7 @@
 #include<vector>
 #include<algorithm>
 using PiKtures::Utility::ErrorCode;
-void PiKtures::Enhancer::applyLowPassKernel(Mat& image, const Mat& kernel){
+void PiKtures::Enhancer::applyPassKernel(Mat& image, const Mat& kernel){
     if(image.cols == 1 || image.rows == 1) throw ErrorCode::IMAGE_TOO_SMALL;
     if(image.cols != kernel.cols || image.rows != kernel.rows) throw std::logic_error("panic: Size of image and kernel does not match.");
     if(PiKtures::Utility::checkImage(image)) throw ErrorCode::INVALID_IMAGE_TYPE;
@@ -108,14 +108,28 @@ void PiKtures::Enhancer::butterworthLowpassFilter(Mat& image, double d, double n
     if(image.cols == 1 || image.rows == 1) throw ErrorCode::IMAGE_TOO_SMALL;
     if(PiKtures::Utility::checkImage(image)) throw ErrorCode::INVALID_IMAGE_TYPE;
     Mat kernel = getPassKernel(image, butterworthLowpass, d, n);
-    applyLowPassKernel(image, kernel);
+    applyPassKernel(image, kernel);
+}
+void PiKtures::Enhancer::butterworthHighpassFilter(Mat& image, double d, double n){
+    if(d <= 0) throw ErrorCode::NONPOSITIVE_DIAMETER;
+    if(image.cols == 1 || image.rows == 1) throw ErrorCode::IMAGE_TOO_SMALL;
+    if(PiKtures::Utility::checkImage(image)) throw ErrorCode::INVALID_IMAGE_TYPE;
+    Mat kernel = getPassKernel(image, butterworthHighpass, d, n);
+    applyPassKernel(image, kernel);
 }
 void PiKtures::Enhancer::gaussianLowpassFilter(Mat& image, double d){
     if(d <= 0) throw ErrorCode::NONPOSITIVE_DIAMETER;
     if(image.cols == 1 || image.rows == 1) throw ErrorCode::IMAGE_TOO_SMALL;
     if(PiKtures::Utility::checkImage(image)) throw ErrorCode::INVALID_IMAGE_TYPE;
     Mat kernel = getPassKernel(image, gaussianLowpass, d);
-    applyLowPassKernel(image, kernel);
+    applyPassKernel(image, kernel);
+}
+void PiKtures::Enhancer::gaussianHighpassFilter(Mat& image, double d){
+    if(d <= 0) throw ErrorCode::NONPOSITIVE_DIAMETER;
+    if(image.cols == 1 || image.rows == 1) throw ErrorCode::IMAGE_TOO_SMALL;
+    if(PiKtures::Utility::checkImage(image)) throw ErrorCode::INVALID_IMAGE_TYPE;
+    Mat kernel = getPassKernel(image, gaussianHighpass, d);
+    applyPassKernel(image, kernel);
 }
 void PiKtures::Enhancer::dermabrasion(Mat& image, double color_sigma, double space_sigma){
     // the kernel is never modified, define as const static to reduce the cost of time and space

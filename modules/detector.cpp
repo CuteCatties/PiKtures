@@ -9,11 +9,11 @@ cv::Mat PiKtures::Detector::FaceDetector::transformForDetection(const Mat& origi
     cv::equalizeHist(result, result);
     return result;
 }
-PiKtures::Detector::FaceDetector&& PiKtures::Detector::FaceDetector::getFaceDetector(){
-    return OpenCVCascade();
+std::unique_ptr<PiKtures::Detector::FaceDetector> PiKtures::Detector::FaceDetector::getFaceDetector(){
+    return std::make_unique<OpenCVCascade>();
 }
-PiKtures::Detector::FaceDetector&& PiKtures::Detector::FaceDetector::getFaceDetector(const char* const module){
-    return OpenCVCascade(module);
+std::unique_ptr<PiKtures::Detector::FaceDetector> PiKtures::Detector::FaceDetector::getFaceDetector(const char* const module){
+    return std::make_unique<OpenCVCascade>(module);
 }
 PiKtures::Detector::OpenCVCascade::OpenCVCascade(
     const char* const file_path

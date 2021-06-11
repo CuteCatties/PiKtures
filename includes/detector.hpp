@@ -1,6 +1,7 @@
 _Pragma("once");
 #include<opencv2/opencv.hpp>
 #include<vector>
+#include<memory>
 namespace PiKtures::Detector{
     using cv::Mat;
     class FaceDetector{
@@ -12,8 +13,8 @@ namespace PiKtures::Detector{
             virtual void detect(const Mat&, std::vector<Mat>&) = 0;
             virtual bool ready()const = 0;
             static Mat transformForDetection(const Mat&);
-            static FaceDetector&& getFaceDetector();
-            static FaceDetector&& getFaceDetector(const char* const);
+            static std::unique_ptr<FaceDetector> getFaceDetector();
+            static std::unique_ptr<FaceDetector> getFaceDetector(const char* const);
     };
     class OpenCVCascade: public FaceDetector{
         private:

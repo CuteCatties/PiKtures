@@ -1,3 +1,4 @@
+#include<PiKturesConfig.hpp>
 #include<utility.hpp>
 #include<command.hpp>
 #include<detector.hpp>
@@ -16,12 +17,12 @@ using namespace PiKtures::Rowdy;
 using namespace PiKtures::Utility;
 
 // constants
-constexpr const char* image_window = "PiKture.jpg";
+constexpr const char* image_window = "PiKture";
 constexpr const char* spectrum_window[3] = {
-    "spectrum_R.jpg", "spectrum_G.jpg", "spectrum_B.jpg"
+    "spectrum_B", "spectrum_G", "spectrum_R"
 };
-constexpr const char* face_window = "face.jpg";
-constexpr const char* watermark_window = "watermark.jpg";
+constexpr const char* face_window = "face";
+constexpr const char* watermark_window = "watermark";
 
 // global variables
 bool image_opened = false;
@@ -31,7 +32,8 @@ Mat spectrum[3];
 Mat face;
 Mat watermark;
 
-FaceDetector&& detector = FaceDetector::getFaceDetector();
+auto detector_holder = FaceDetector::getFaceDetector();
+FaceDetector& detector = *detector_holder;
 CommandParser top_cp("");
 CommandParser noise_cp("noise: ");
 CommandParser denoise_cp("denoise: ");
@@ -51,9 +53,8 @@ vector<PiKtures::Command::CommandSpecifier> top_commands({
                 return static_cast<unsigned int>(ErrorCode::PARAMETER_TOO_MUCH);
             }
             operational_image = imread(argv[1]);
+            if(!image_opened) namedWindow(image_window, WINDOW_NORMAL);
             image_opened = true;
-            namedWindow(image_window);
-            imwrite(image_window, operational_image);
             return static_cast<unsigned int>(ErrorCode::OK);
         },
         nullptr
@@ -93,9 +94,11 @@ vector<PiKtures::Command::CommandSpecifier> top_commands({
             show_spectrum = !show_spectrum;
             if(show_spectrum){
                 for(int i = 0; i < 3; ++i){
-                    spectrum[i] = calculateSpectrum(operational_image, i);
-                    namedWindow(spectrum_window[i]);
-                    imwrite(spectrum_window[i], spectrum[i]);
+                     namedWindow(spectrum_window[i], WINDOW_NORMAL);
+                }
+            }else{
+                for(int i = 0; i < 3; ++i){
+                     destroyWindow(spectrum_window[i]);
                 }
             }
             return static_cast<unsigned int>(ErrorCode::OK);
@@ -117,6 +120,10 @@ vector<PiKtures::Command::CommandSpecifier> top_commands({
             if(argc == 2){
                 detector.loadModule(argv[1]);
             }
+            if(!detector.ready()){
+                out<<pfx<<"no face detection module loaded.\n";
+                return static_cast<unsigned int>(ErrorCode::NO_ACTIVE_MODULE);
+            }
             vector<Mat> result;
             detector.detect(operational_image, result);
             if(result.size() == 0){
@@ -129,7 +136,9 @@ vector<PiKtures::Command::CommandSpecifier> top_commands({
                     },
                     face, face, result[0]
                 );
-                imwrite(face_window, face);
+                imshow(face_window, face);
+                waitKey(0);
+                destroyWindow(face_window);
             }
             return static_cast<unsigned int>(ErrorCode::OK);
         },
@@ -173,6 +182,7 @@ vector<PiKtures::Command::CommandSpecifier> top_commands({
         "quit",
         "terminate this program",
         [](ostream& out, const char* pfx, const int argc, const char** argv){
+            cv::destroyAllWindows();
             std::exit(0);
             return static_cast<unsigned int>(ErrorCode::OK);
         },
@@ -182,6 +192,7 @@ vector<PiKtures::Command::CommandSpecifier> top_commands({
         "exit",
         "terminate this program",
         [](ostream& out, const char* pfx, const int argc, const char** argv){
+            cv::destroyAllWindows();
             std::exit(0);
             return static_cast<unsigned int>(ErrorCode::OK);
         },
@@ -287,7 +298,9 @@ vector<PiKtures::Command::CommandSpecifier> noise_commands({
             }
             watermark = operational_image.clone();
             uncoverWatermark(watermark);
-            imwrite(watermark_window, watermark);
+            imshow(watermark_window, watermark);
+            waitKey(0);
+            destroyWindow(watermark_window);
             return static_cast<unsigned int>(ErrorCode::OK);
         },
         nullptr
@@ -537,6 +550,53 @@ vector<PiKtures::Command::CommandSpecifier> enhance_commands({
         nullptr
     },
     {
+        "sharpen",
+        "sharpen the whole image.",
+        [](ostream& out, const char* pfx, const int argc, const char** argv){
+            if(!image_opened){
+                out<<pfx<<"no image currently opened.\n";
+                return static_cast<unsigned int>(ErrorCode::NO_IMAGE_OPENED);
+            }
+            if(argc < 3){
+                out<<pfx<<"please specify the radius and power of sharpen.\n";
+                return static_cast<unsigned int>(ErrorCode::PARAMETER_TOO_LESS);
+            }
+            if(argc > 3){
+                out<<pfx<<"too many parameters provided.\n";
+                return static_cast<unsigned int>(ErrorCode::PARAMETER_TOO_MUCH);
+            }
+            Mat sharpen_temp = operational_image.clone();
+            gaussianHighpassFilter(sharpen_temp, strtod(argv[1], nullptr));
+            sharpen_temp.convertTo(sharpen_temp, CV_32F);
+            operational_image.convertTo(operational_image, CV_32F);
+            scaleAdd(sharpen_temp, strtod(argv[2], nullptr), operational_image, operational_image);
+            operational_image.convertTo(operational_image, CV_8U);
+            return static_cast<unsigned int>(ErrorCode::OK);
+        },
+        nullptr
+    },
+    {
+        "highpass",
+        "highpass",
+        [](ostream& out, const char* pfx, const int argc, const char** argv){
+            if(!image_opened){
+                out<<pfx<<"no image currently opened.\n";
+                return static_cast<unsigned int>(ErrorCode::NO_IMAGE_OPENED);
+            }
+            if(argc < 2){
+                out<<pfx<<"please specify the radius.\n";
+                return static_cast<unsigned int>(ErrorCode::PARAMETER_TOO_LESS);
+            }
+            if(argc > 2){
+                out<<pfx<<"too many parameters provided.\n";
+                return static_cast<unsigned int>(ErrorCode::PARAMETER_TOO_MUCH);
+            }
+            gaussianHighpassFilter(operational_image, strtod(argv[1], nullptr));
+            return static_cast<unsigned int>(ErrorCode::OK);
+        },
+        nullptr
+    },
+    {
         "help",
         "Show help message",
         [](ostream& out, const char* pfx, const int argc, const char** argv){
@@ -558,13 +618,15 @@ int main(){
     unsigned int r = 0;
     bool side = 1;
     const char** args = nullptr;
+    cv::startWindowThread();
+    cout<<">>>> PiKtures v"<<PiKtures_VERSION_MAJOR<<"."<<PiKtures_VERSION_MINOR<<" by CuteKitties powered by OpenCV4 <<<<\n";
     while(true){
         if(show_spectrum) for(int i = 0; i < 3; ++i){
             spectrum[i] = calculateSpectrum(operational_image, i);
-            imwrite(spectrum_window[i], spectrum[i]);
+            imshow(spectrum_window[i], spectrum[i]);
         }
         if(image_opened){
-            imwrite(image_window, operational_image);
+            imshow(image_window, operational_image);
         }
         if(r != 0){
             #ifdef __linux__

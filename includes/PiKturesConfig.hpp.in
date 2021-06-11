@@ -1,0 +1,2 @@
+constexpr unsigned int PiKtures_VERSION_MAJOR = @PiKtures_VERSION_MAJOR@;
+constexpr unsigned int PiKtures_VERSION_MINOR = @PiKtures_VERSION_MINOR@;
