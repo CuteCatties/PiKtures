@@ -3,6 +3,8 @@ _Pragma("once");
 #include<vector>
 #include<algorithm>
 #include<concepts>
+#include<iostream>
+using namespace std;
 namespace PiKtures::Utility{
     enum class ErrorCode: unsigned int{
         OK = 0,
@@ -66,6 +68,38 @@ namespace PiKtures::Utility{
         cv::split(m, buffer.data());
         for(auto& c: buffer) function(c, std::forward<Args>(args)...);
         cv::merge(buffer.data(), buffer.size(), result);
+    }
+    inline Mat getBoundarySelector(const Mat& selector, int width){
+        int x_start = 0, x_end = 0, y_start = 0, y_end = 0;
+        for(int x = 0; x < selector.rows; ++x) for(int y = 0; y < selector.cols; ++y) if(selector.at<uint8_t>(x, y) == 1){
+            x_start = x;
+            y_start = y;
+            goto jo;
+        }
+        jo:
+        for(int y = y_start; selector.at<uint8_t>(x_start, y) == 1; y_end = ++y);
+        for(int x = x_start; selector.at<uint8_t>(x, y_start) == 1; x_end = ++x);
+        Mat result = selector.clone();
+        if(x_end <= x_start || y_end <= y_start){
+            result *= 0;
+        }else{
+            using std::min;
+            using std::max;
+            Mat outter = result(
+                cv::Range(max(0, x_start - width), min(selector.rows, x_end + width)),
+                cv::Range(max(0, y_start - width), min(selector.cols, y_end + width))
+            );
+            outter *= 0;
+            outter += 1;
+            if((x_start + (width << 1) < x_end) && (y_start + (width << 1) < y_end)){
+                Mat inner = result(
+                    cv::Range(x_start + width, x_end - width),
+                    cv::Range(y_start + width, y_end - width)
+                );
+                inner *= 0;
+            }
+        }
+        return result;
     }
     inline Mat reverseSelector(const Mat& selector){
         Mat result(selector.size(), selector.type());

@@ -37,6 +37,7 @@ namespace PiKtures::Enhancer{
         });
         return kernel;
     }
+    Mat getGaussianKernel(int, double);
     void applyPassKernel(Mat&, const Mat&);
     void medianFilter(Mat&, int);
     void meanFilter(Mat&, int);

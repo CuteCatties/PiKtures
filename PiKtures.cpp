@@ -23,6 +23,9 @@ constexpr const char* spectrum_window[3] = {
 };
 constexpr const char* face_window = "face";
 constexpr const char* watermark_window = "watermark";
+unsigned int bound_width = 30;
+unsigned int bound_gaussian_size = 9;
+double bound_gaussian_sigma = 10;
 
 // global variables
 bool image_opened = false;
@@ -137,8 +140,6 @@ vector<PiKtures::Command::CommandSpecifier> top_commands({
                     face, face, result[0]
                 );
                 imshow(face_window, face);
-                waitKey(0);
-                destroyWindow(face_window);
             }
             return static_cast<unsigned int>(ErrorCode::OK);
         },
@@ -299,8 +300,6 @@ vector<PiKtures::Command::CommandSpecifier> noise_commands({
             watermark = operational_image.clone();
             uncoverWatermark(watermark);
             imshow(watermark_window, watermark);
-            waitKey(0);
-            destroyWindow(watermark_window);
             return static_cast<unsigned int>(ErrorCode::OK);
         },
         nullptr
@@ -477,23 +476,35 @@ vector<PiKtures::Command::CommandSpecifier> enhance_commands({
                 if(result.size() == 0){
                     dermabrasion(operational_image, strtod(argv[1], nullptr), strtod(argv[2], nullptr));
                 }else{
-                    Mat f = operational_image.clone();
-                    Mat r = operational_image.clone();
-                    applyToEachChannel(
-                        [](Mat& channel, const Mat& selector){
-                            channel = channel.mul(selector);
-                        },
-                        f, f, result[0]
-                    );
-                    result[0] = reverseSelector(result[0]);
-                    applyToEachChannel(
-                        [](Mat& channel, const Mat& selector){
-                            channel = channel.mul(selector);
-                        },
-                        r, r, result[0]
-                    );
-                    dermabrasion(f, strtod(argv[1], nullptr), strtod(argv[2], nullptr));
-                    operational_image = f + r;
+                    for(auto& res: result){
+                        Mat f;
+                        applyToEachChannel(
+                            [](Mat& channel, const Mat& selector){
+                                channel = channel.mul(selector);
+                            },
+                            f, operational_image, res
+                        );
+                        Mat r = operational_image - f;
+                        dermabrasion(f, strtod(argv[1], nullptr), strtod(argv[2], nullptr));
+                        operational_image = f + r;
+                        Mat sf = getBoundarySelector(res, bound_width);
+                        Mat sr = reverseSelector(sf);
+                        Mat preserve;
+                        applyToEachChannel(
+                            [](Mat& channel, const Mat& selector){
+                                channel = channel.mul(selector);
+                            },
+                            preserve, operational_image, sr
+                        );
+                        gaussianFilter(operational_image, bound_gaussian_size, bound_gaussian_sigma);
+                        applyToEachChannel(
+                            [](Mat& channel, const Mat& selector){
+                                channel = channel.mul(selector);
+                            },
+                            operational_image, operational_image, sf
+                        );
+                        operational_image += preserve;
+                    }
                 }
             }else{
                 dermabrasion(operational_image, strtod(argv[1], nullptr), strtod(argv[2], nullptr));
@@ -524,23 +535,35 @@ vector<PiKtures::Command::CommandSpecifier> enhance_commands({
                 if(result.size() == 0){
                     luminance(operational_image, strtod(argv[1], nullptr), strtol(argv[2], nullptr, 10));
                 }else{
-                    Mat f = operational_image.clone();
-                    Mat r = operational_image.clone();
-                    applyToEachChannel(
-                        [](Mat& channel, const Mat& selector){
-                            channel = channel.mul(selector);
-                        },
-                        f, f, result[0]
-                    );
-                    result[0] = reverseSelector(result[0]);
-                    applyToEachChannel(
-                        [](Mat& channel, const Mat& selector){
-                            channel = channel.mul(selector);
-                        },
-                        r, r, result[0]
-                    );
-                    luminance(f, strtod(argv[1], nullptr), strtol(argv[2], nullptr, 10));
-                    operational_image = f + r;
+                    for(auto& res: result){
+                        Mat f;
+                        applyToEachChannel(
+                            [](Mat& channel, const Mat& selector){
+                                channel = channel.mul(selector);
+                            },
+                            f, operational_image, res
+                        );
+                        Mat r = operational_image - f;
+                        luminance(f, strtod(argv[1], nullptr), strtol(argv[2], nullptr, 10));
+                        operational_image = f + r;
+                        Mat sf = getBoundarySelector(res, bound_width);
+                        Mat sr = reverseSelector(sf);
+                        Mat preserve;
+                        applyToEachChannel(
+                            [](Mat& channel, const Mat& selector){
+                                channel = channel.mul(selector);
+                            },
+                            preserve, operational_image, sr
+                        );
+                        gaussianFilter(operational_image, bound_gaussian_size, bound_gaussian_sigma);
+                        applyToEachChannel(
+                            [](Mat& channel, const Mat& selector){
+                                channel = channel.mul(selector);
+                            },
+                            operational_image, operational_image, sf
+                        );
+                        operational_image += preserve;
+                    }
                 }
             }else{
                 luminance(operational_image, strtod(argv[1], nullptr), strtol(argv[2], nullptr, 10));
@@ -608,7 +631,7 @@ vector<PiKtures::Command::CommandSpecifier> enhance_commands({
     }
 });
 
-int main(){
+int main(int argc, char** argv){
     enhance_cp.insertCommand(enhance_commands);
     denoise_cp.insertCommand(denoise_commands);
     noise_cp.insertCommand(noise_commands);

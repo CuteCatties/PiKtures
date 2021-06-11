@@ -4,6 +4,18 @@
 #include<vector>
 #include<algorithm>
 using PiKtures::Utility::ErrorCode;
+cv::Mat PiKtures::Enhancer::getGaussianKernel(int kernel_size, double sigma){
+    if((kernel_size & 1) == 0) throw ErrorCode::EVEN_KERNEL_SIZE;
+    Mat gaussian_kernel(cv::Size(kernel_size, kernel_size), CV_32F);
+    int offset = kernel_size >> 1;
+    // fill directly from gaussian function
+    gaussian_kernel.forEach<float>([offset, sigma](float& p, const int* position){
+        p = static_cast<float>(gaussian(position[0] - offset, position[1] - offset, sigma));
+    });
+    // normalize kernel
+    gaussian_kernel /= cv::sum(gaussian_kernel)[0];
+    return gaussian_kernel;
+}
 void PiKtures::Enhancer::applyPassKernel(Mat& image, const Mat& kernel){
     if(image.cols == 1 || image.rows == 1) throw ErrorCode::IMAGE_TOO_SMALL;
     if(image.cols != kernel.cols || image.rows != kernel.rows) throw std::logic_error("panic: Size of image and kernel does not match.");
@@ -84,16 +96,9 @@ void PiKtures::Enhancer::gaussianFilter(Mat& image, int kernel_size, double sigm
     int offset = kernel_size >> 1;
 
     // generate gaussian kernel
-    Mat gaussian_kernel(cv::Size(kernel_size, kernel_size), CV_32F);
-    // fill directly from gaussian function
-    gaussian_kernel.forEach<float>([offset, sigma](float& p, const int* position){
-        p = static_cast<double>(gaussian(position[0] - offset, position[1] - offset, sigma));
-    });
-    // normalize kernel
-    gaussian_kernel /= cv::sum(gaussian_kernel)[0];
-    // gaussian kernel is ready
+    Mat gaussian_kernel = getGaussianKernel(kernel_size, sigma);
     PiKtures::Utility::applyToEachChannel(
-        [offset, &gaussian_kernel](Mat& c){cv::filter2D(c, c, -1, gaussian_kernel);},
+        [&gaussian_kernel](Mat& c){cv::filter2D(c, c, -1, gaussian_kernel);},
         image, image
     );
 }
