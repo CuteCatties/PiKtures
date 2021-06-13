@@ -8,6 +8,8 @@ using namespace std;
 namespace PiKtures::Utility{
     enum class ErrorCode: unsigned int{
         OK = 0,
+        NO_MODIFYCATION,
+        NO_STACK_MODIFICATION,
         COMMAND_NOT_FOUND,
         COMMAND_AMBIGUOUS,
         PARAMETER_TOO_LESS,
@@ -27,6 +29,10 @@ namespace PiKtures::Utility{
         MODULE_LOAD_FAILED,
         NO_ACTIVE_MODULE,
         NO_IMAGE_OPENED,
+        EMPTY_PAST_STACK,
+        EMPTY_FUTURE_STACK,
+        FILE_UNACCESSIABLE,
+        FILESYSTEM_ERROR,
         // !!! insert new error codes *RIGHT ABOVE* this comment !!!
         // don't forget to insert a new error message line in utility.cpp
         // you won't forget it, otherwise the static assert would fail.
@@ -34,6 +40,26 @@ namespace PiKtures::Utility{
     };
     const char* errorMessage(const unsigned int);
     inline const char* errorMessage(const ErrorCode& ec){return errorMessage(static_cast<unsigned int>(ec));}
+    inline bool isError(const ErrorCode& ec){
+        return ec != ErrorCode::OK &&
+               ec != ErrorCode::NO_MODIFYCATION &&
+               ec != ErrorCode::NO_STACK_MODIFICATION;
+    }
+    inline bool isModified(const ErrorCode& ec){
+        return ec == ErrorCode::OK;
+    }
+    inline bool maintainStacks(const ErrorCode& ec){
+        return ec != ErrorCode::NO_STACK_MODIFICATION;
+    }
+    inline bool isError(const unsigned int ec){
+        return isError(static_cast<ErrorCode>(ec));
+    }
+    inline bool isModified(const unsigned int ec){
+        return isModified(static_cast<ErrorCode>(ec));
+    }
+    inline bool maintainStacks(const unsigned int ec){
+        return maintainStacks(static_cast<ErrorCode>(ec));
+    }
     using cv::Mat;
     Mat alignImage(const Mat&);
     inline Mat alignImage(const Mat& origin){

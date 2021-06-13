@@ -3,6 +3,8 @@
 const char* PiKtures::Utility::errorMessage(const unsigned int errnum){
     constexpr const char* error_message[] = {
         "OK.",
+        "Operation is done with no modification made.",
+        "Operations on stacks: NO FURTHER MODIFICATON ON STACKS!",
         "No such command.",
         "Ambiguous command.",
         "Peremeters provided is not enough.",
@@ -21,7 +23,11 @@ const char* PiKtures::Utility::errorMessage(const unsigned int errnum){
         "The watermark is too big.",
         "Failed to load specified module.",
         "No module loaded.",
-        "No image is opened."
+        "No image is opened.",
+        "No operation history recorded.",
+        "No redoable operations.",
+        "The specified file does not exist or is not a file.",
+        "Unknown error encountered when interacting with the underlaying filesystem."
     };
     static_assert(static_cast<unsigned int>(ErrorCode::ERRORCODERARE) == sizeof(error_message) / sizeof(const char*));
     if(errnum >= static_cast<unsigned int>(ErrorCode::ERRORCODERARE)) throw std::logic_error("panic: error number out of range.");

@@ -8,8 +8,11 @@
 #include<iostream>
 #include<vector>
 #include<cstdlib>
+#include<stack>
+#include<filesystem>
 using namespace std;
 using namespace cv;
+using namespace std::filesystem;
 using namespace PiKtures::Command;
 using namespace PiKtures::Detector;
 using namespace PiKtures::Enhancer;
@@ -34,6 +37,8 @@ bool show_spectrum = false;
 Mat spectrum[3];
 Mat face;
 Mat watermark;
+stack<Mat> past_stack;
+stack<Mat> future_stack;
 
 auto detector_holder = FaceDetector::getFaceDetector();
 FaceDetector& detector = *detector_holder;
@@ -41,6 +46,18 @@ CommandParser top_cp("");
 CommandParser noise_cp("noise: ");
 CommandParser denoise_cp("denoise: ");
 CommandParser enhance_cp("enhance: ");
+
+// functions to be registered
+unsigned int terminatePiKtures(
+    ostream& out,
+    const char* pfx,
+    const int argc,
+    const char** argv
+){
+    destroyAllWindows();
+    exit(0);
+    return static_cast<unsigned int>(ErrorCode::NO_MODIFYCATION);
+}
 
 // commands
 vector<PiKtures::Command::CommandSpecifier> top_commands({
@@ -55,8 +72,11 @@ vector<PiKtures::Command::CommandSpecifier> top_commands({
                 out<<pfx<<"too many parameters provided.\n";
                 return static_cast<unsigned int>(ErrorCode::PARAMETER_TOO_MUCH);
             }
+            if(!is_regular_file(argv[1])){
+                out<<pfx<<"cannot open specified file.\n";
+                return static_cast<unsigned int>(ErrorCode::FILE_UNACCESSIABLE);
+            }
             operational_image = imread(argv[1]);
-            if(!image_opened) namedWindow(image_window, WINDOW_NORMAL);
             image_opened = true;
             return static_cast<unsigned int>(ErrorCode::OK);
         },
@@ -77,8 +97,63 @@ vector<PiKtures::Command::CommandSpecifier> top_commands({
                 out<<pfx<<"too many parameters provided.\n";
                 return static_cast<unsigned int>(ErrorCode::PARAMETER_TOO_MUCH);
             }
+            try{
+                path target(argv[1]);
+                create_directories(target.parent_path());
+            }catch(exception& e){
+                out<<pfx<<e.what()<<endl;
+                out<<pfx<<"!!!! IMAGE IS NOT SAVED !!!!\n";
+                return static_cast<unsigned int>(ErrorCode::FILESYSTEM_ERROR);
+            }
             imwrite(argv[1], operational_image);
-            return static_cast<unsigned int>(ErrorCode::OK);
+            return static_cast<unsigned int>(ErrorCode::NO_MODIFYCATION);
+        },
+        nullptr
+    },
+    {
+        "undo",
+        "Cancel last change made to opened image.",
+        [](ostream& out, const char* pfx, const int argc, const char** argv){
+            if(!image_opened){
+                out<<pfx<<"no image currently opened.\n";
+                return static_cast<unsigned int>(ErrorCode::NO_IMAGE_OPENED);
+            }
+            if(argc > 2){
+                out<<pfx<<"undo takes no parameters.\n";
+                return static_cast<unsigned int>(ErrorCode::PARAMETER_TOO_MUCH);
+            }
+            if(past_stack.size() <= 1){
+                out<<pfx<<"no operation history.\n";
+                return static_cast<unsigned int>(ErrorCode::EMPTY_PAST_STACK);
+            }
+            future_stack.push(past_stack.top());
+            past_stack.pop();
+            operational_image = past_stack.top();
+            past_stack.pop();
+            return static_cast<unsigned int>(ErrorCode::NO_STACK_MODIFICATION);
+        },
+        nullptr
+    },
+    {
+        "redo",
+        "Cancel last undo.",
+        [](ostream& out, const char* pfx, const int argc, const char** argv){
+            if(!image_opened){
+                out<<pfx<<"no image currently opened.\n";
+                return static_cast<unsigned int>(ErrorCode::NO_IMAGE_OPENED);
+            }
+            if(argc > 2){
+                out<<pfx<<"redo takes no parameters.\n";
+                return static_cast<unsigned int>(ErrorCode::PARAMETER_TOO_MUCH);
+            }
+            if(future_stack.empty()){
+                out<<pfx<<"no cancelable undo operations.\n";
+                return static_cast<unsigned int>(ErrorCode::EMPTY_FUTURE_STACK);
+            }
+            //imshow("stacktop", future_stack.top());
+            operational_image = future_stack.top();
+            future_stack.pop();
+            return static_cast<unsigned int>(ErrorCode::NO_STACK_MODIFICATION);
         },
         nullptr
     },
@@ -95,16 +170,7 @@ vector<PiKtures::Command::CommandSpecifier> top_commands({
                 return static_cast<unsigned int>(ErrorCode::PARAMETER_TOO_MUCH);
             }
             show_spectrum = !show_spectrum;
-            if(show_spectrum){
-                for(int i = 0; i < 3; ++i){
-                     namedWindow(spectrum_window[i], WINDOW_NORMAL);
-                }
-            }else{
-                for(int i = 0; i < 3; ++i){
-                     destroyWindow(spectrum_window[i]);
-                }
-            }
-            return static_cast<unsigned int>(ErrorCode::OK);
+            return static_cast<unsigned int>(ErrorCode::NO_MODIFYCATION);
         },
         nullptr
     },
@@ -141,7 +207,7 @@ vector<PiKtures::Command::CommandSpecifier> top_commands({
                 );
                 imshow(face_window, face);
             }
-            return static_cast<unsigned int>(ErrorCode::OK);
+            return static_cast<unsigned int>(ErrorCode::NO_MODIFYCATION);
         },
         nullptr
     },
@@ -175,28 +241,20 @@ vector<PiKtures::Command::CommandSpecifier> top_commands({
         [](ostream& out, const char* pfx, const int argc, const char** argv){
             out<<pfx<<endl;
             top_cp.listCommands("", out, "\t", true, 10);
-            return static_cast<unsigned int>(ErrorCode::OK);
+            return static_cast<unsigned int>(ErrorCode::NO_MODIFYCATION);
         },
         nullptr
     },
     {
         "quit",
         "terminate this program",
-        [](ostream& out, const char* pfx, const int argc, const char** argv){
-            cv::destroyAllWindows();
-            std::exit(0);
-            return static_cast<unsigned int>(ErrorCode::OK);
-        },
+        terminatePiKtures,
         nullptr
     },
     {
         "exit",
         "terminate this program",
-        [](ostream& out, const char* pfx, const int argc, const char** argv){
-            cv::destroyAllWindows();
-            std::exit(0);
-            return static_cast<unsigned int>(ErrorCode::OK);
-        },
+        terminatePiKtures,
         nullptr
     }
 });
@@ -300,7 +358,7 @@ vector<PiKtures::Command::CommandSpecifier> noise_commands({
             watermark = operational_image.clone();
             uncoverWatermark(watermark);
             imshow(watermark_window, watermark);
-            return static_cast<unsigned int>(ErrorCode::OK);
+            return static_cast<unsigned int>(ErrorCode::NO_MODIFYCATION);
         },
         nullptr
     },
@@ -310,7 +368,7 @@ vector<PiKtures::Command::CommandSpecifier> noise_commands({
         [](ostream& out, const char* pfx, const int argc, const char** argv){
             out<<pfx<<endl;
             noise_cp.listCommands("", out, "\t", true, 10);
-            return static_cast<unsigned int>(ErrorCode::OK);
+            return static_cast<unsigned int>(ErrorCode::NO_MODIFYCATION);
         },
         nullptr
     }
@@ -448,7 +506,7 @@ vector<PiKtures::Command::CommandSpecifier> denoise_commands({
         [](ostream& out, const char* pfx, const int argc, const char** argv){
             out<<pfx<<endl;
             denoise_cp.listCommands("", out, "\t", true, 10);
-            return static_cast<unsigned int>(ErrorCode::OK);
+            return static_cast<unsigned int>(ErrorCode::NO_MODIFYCATION);
         },
         nullptr
     }
@@ -625,7 +683,7 @@ vector<PiKtures::Command::CommandSpecifier> enhance_commands({
         [](ostream& out, const char* pfx, const int argc, const char** argv){
             out<<pfx<<endl;
             enhance_cp.listCommands("", out, "\t", true, 10);
-            return static_cast<unsigned int>(ErrorCode::OK);
+            return static_cast<unsigned int>(ErrorCode::NO_MODIFYCATION);
         },
         nullptr
     }
@@ -638,20 +696,21 @@ int main(int argc, char** argv){
     top_cp.insertCommand(top_commands);
     string read_buffer;
     vector<string> split_buffer;
-    unsigned int r = 0;
+    unsigned int r = static_cast<unsigned int>(ErrorCode::NO_MODIFYCATION);
     bool side = 1;
     const char** args = nullptr;
     cv::startWindowThread();
     cout<<">>>> PiKtures v"<<PiKtures_VERSION_MAJOR<<"."<<PiKtures_VERSION_MINOR<<" by CuteKitties powered by OpenCV4 <<<<\n";
     while(true){
+        if(image_opened){
+            past_stack.push(operational_image.clone());
+            imshow(image_window, operational_image);
+        }
         if(show_spectrum) for(int i = 0; i < 3; ++i){
             spectrum[i] = calculateSpectrum(operational_image, i);
             imshow(spectrum_window[i], spectrum[i]);
         }
-        if(image_opened){
-            imshow(image_window, operational_image);
-        }
-        if(r != 0){
+        if(isError(r)){
             #ifdef __linux__
             cout<<"\033[6;31m"<<r<<"\033[0m";
             #else
@@ -680,13 +739,21 @@ int main(int argc, char** argv){
         if(split_buffer.size() == 0){
             cout<<"say something...\n";
             r = static_cast<unsigned int>(ErrorCode::EMPTY_COMMAND);
+        }else{
+            args = new const char*[split_buffer.size() + 1];
+            for(decltype(split_buffer.size()) i = 0; i < split_buffer.size(); ++i) args[i] = split_buffer.at(i).data();
+            args[split_buffer.size()] = nullptr;
+            r = top_cp.parse(split_buffer.at(0).c_str(), cout, split_buffer.size(), args);
+            if(args != nullptr) delete[] args;
+            args = nullptr;
         }
-        args = new const char*[split_buffer.size() + 1];
-        for(decltype(split_buffer.size()) i = 0; i < split_buffer.size(); ++i) args[i] = split_buffer.at(i).data();
-        args[split_buffer.size()] = nullptr;
-        r = top_cp.parse(split_buffer.at(0).c_str(), cout, split_buffer.size(), args);
-        if(args != nullptr) delete[] args;
-        args = nullptr;
+        if(maintainStacks(r)){
+            if(isModified(r)){
+                while(!future_stack.empty()) future_stack.pop();
+            }else{
+                if(!past_stack.empty()) past_stack.pop();
+            }
+        }
     }
     return 0;
 }
