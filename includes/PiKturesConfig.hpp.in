@@ -1,2 +1,5 @@
-constexpr unsigned int PiKtures_VERSION_MAJOR = @PiKtures_VERSION_MAJOR@;
-constexpr unsigned int PiKtures_VERSION_MINOR = @PiKtures_VERSION_MINOR@;
+constexpr auto PiKtures_VERSION_MAJOR = @PiKtures_VERSION_MAJOR@;
+constexpr auto PiKtures_VERSION_MINOR = @PiKtures_VERSION_MINOR@;
+constexpr auto PiKtures_VERSION_PATCH = @PiKtures_VERSION_PATCH@;
+constexpr auto PiKtures_VERSION_TWEAK = @PiKtures_VERSION_TWEAK@;
+constexpr bool USE_OPENCV_GUI = @USE_OPENCV_GUI@;

@@ -8,8 +8,8 @@ namespace PiKtures::Rowdy{
     using PiKtures::Utility::checkProbability;
     using PiKtures::Utility::checkImage;
     using PiKtures::Utility::ErrorCode;
-    constexpr double POSSIB_RANDOM_BASE = 1.0;
-    constexpr double POSSIB_RANDOM_RARE = 2.0;
+    constexpr double POSSIB_RANDOM_BASE = 0.0;
+    constexpr double POSSIB_RANDOM_RARE = 1.0;
     constexpr uint8_t CHANNEL_MIN = 0;
     constexpr uint8_t CHANNEL_MAX = -1;
     static_assert((POSSIB_RANDOM_RARE - POSSIB_RANDOM_BASE - 1.0) <= 1e-6 && (POSSIB_RANDOM_RARE - POSSIB_RANDOM_BASE - 1.0) >= -1e-6);
@@ -24,7 +24,7 @@ namespace PiKtures::Rowdy{
     }
 }
 void PiKtures::Rowdy::salt(Mat& image, double p_black, double p_white){
-    checkProbability(std::vector<double>({p_black, p_white}));
+    checkProbability(p_black, p_white);
     checkImage(image);
     p_black += POSSIB_RANDOM_BASE;
     p_white = POSSIB_RANDOM_RARE - p_white;
@@ -39,7 +39,7 @@ void PiKtures::Rowdy::salt(Mat& image, double p_black, double p_white){
     );
 }
 void PiKtures::Rowdy::random(Mat& image, double p_noise){
-    checkProbability(std::vector<double>({p_noise}));
+    checkProbability(p_noise);
     checkImage(image);
     p_noise += POSSIB_RANDOM_BASE;
     std::uniform_real_distribution<>real_distributor(POSSIB_RANDOM_BASE, POSSIB_RANDOM_RARE);

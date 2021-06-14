@@ -10,6 +10,7 @@
 #include<cstdlib>
 #include<stack>
 #include<filesystem>
+#include<string>
 using namespace std;
 using namespace cv;
 using namespace std::filesystem;
@@ -59,6 +60,15 @@ unsigned int terminatePiKtures(
     return static_cast<unsigned int>(ErrorCode::NO_MODIFYCATION);
 }
 
+// helpers
+void safeImshow(string name, const Mat& matrix){
+    if constexpr(USE_OPENCV_GUI){
+        imshow(name, matrix);
+    }else{
+        imwrite(name + ".jpg", matrix);
+    }
+}
+
 // commands
 vector<PiKtures::Command::CommandSpecifier> top_commands({
     {
@@ -77,6 +87,9 @@ vector<PiKtures::Command::CommandSpecifier> top_commands({
                 return static_cast<unsigned int>(ErrorCode::FILE_UNACCESSIABLE);
             }
             operational_image = imread(argv[1]);
+            if constexpr(USE_OPENCV_GUI){
+                if(!image_opened) namedWindow(image_window, WINDOW_NORMAL);
+            }
             image_opened = true;
             return static_cast<unsigned int>(ErrorCode::OK);
         },
@@ -99,14 +112,15 @@ vector<PiKtures::Command::CommandSpecifier> top_commands({
             }
             try{
                 path target(argv[1]);
-                create_directories(target.parent_path());
+                if(target.has_parent_path()) create_directories(target.parent_path());
+                if(!target.has_extension()) target.replace_extension("jpg");
+                imwrite(target.c_str(), operational_image);
+                return static_cast<unsigned int>(ErrorCode::NO_MODIFYCATION);
             }catch(exception& e){
                 out<<pfx<<e.what()<<endl;
                 out<<pfx<<"!!!! IMAGE IS NOT SAVED !!!!\n";
                 return static_cast<unsigned int>(ErrorCode::FILESYSTEM_ERROR);
             }
-            imwrite(argv[1], operational_image);
-            return static_cast<unsigned int>(ErrorCode::NO_MODIFYCATION);
         },
         nullptr
     },
@@ -150,7 +164,6 @@ vector<PiKtures::Command::CommandSpecifier> top_commands({
                 out<<pfx<<"no cancelable undo operations.\n";
                 return static_cast<unsigned int>(ErrorCode::EMPTY_FUTURE_STACK);
             }
-            //imshow("stacktop", future_stack.top());
             operational_image = future_stack.top();
             future_stack.pop();
             return static_cast<unsigned int>(ErrorCode::NO_STACK_MODIFICATION);
@@ -170,6 +183,19 @@ vector<PiKtures::Command::CommandSpecifier> top_commands({
                 return static_cast<unsigned int>(ErrorCode::PARAMETER_TOO_MUCH);
             }
             show_spectrum = !show_spectrum;
+            if constexpr(USE_OPENCV_GUI){
+                if(show_spectrum){
+                    for(int i = 0; i < 3; ++i) namedWindow(spectrum_window[i], WINDOW_NORMAL);
+                }else{
+                    for(int i = 0; i < 3; ++i){
+                        try{
+                            destroyWindow(spectrum_window[i]);
+                        }catch(...){
+                            // ignore exception caused by closed windows
+                        }
+                    }
+                }
+            }
             return static_cast<unsigned int>(ErrorCode::NO_MODIFYCATION);
         },
         nullptr
@@ -205,7 +231,7 @@ vector<PiKtures::Command::CommandSpecifier> top_commands({
                     },
                     face, face, result[0]
                 );
-                imshow(face_window, face);
+                safeImshow(face_window, face);
             }
             return static_cast<unsigned int>(ErrorCode::NO_MODIFYCATION);
         },
@@ -357,7 +383,7 @@ vector<PiKtures::Command::CommandSpecifier> noise_commands({
             }
             watermark = operational_image.clone();
             uncoverWatermark(watermark);
-            imshow(watermark_window, watermark);
+            safeImshow(watermark_window, watermark);
             return static_cast<unsigned int>(ErrorCode::NO_MODIFYCATION);
         },
         nullptr
@@ -505,7 +531,7 @@ vector<PiKtures::Command::CommandSpecifier> denoise_commands({
         "Show help message",
         [](ostream& out, const char* pfx, const int argc, const char** argv){
             out<<pfx<<endl;
-            denoise_cp.listCommands("", out, "\t", true, 10);
+            denoise_cp.listCommands("", out, "\t", true, 20);
             return static_cast<unsigned int>(ErrorCode::NO_MODIFYCATION);
         },
         nullptr
@@ -682,7 +708,7 @@ vector<PiKtures::Command::CommandSpecifier> enhance_commands({
         "Show help message",
         [](ostream& out, const char* pfx, const int argc, const char** argv){
             out<<pfx<<endl;
-            enhance_cp.listCommands("", out, "\t", true, 10);
+            enhance_cp.listCommands("", out, "\t", true, 15);
             return static_cast<unsigned int>(ErrorCode::NO_MODIFYCATION);
         },
         nullptr
@@ -699,16 +725,20 @@ int main(int argc, char** argv){
     unsigned int r = static_cast<unsigned int>(ErrorCode::NO_MODIFYCATION);
     bool side = 1;
     const char** args = nullptr;
-    cv::startWindowThread();
-    cout<<">>>> PiKtures v"<<PiKtures_VERSION_MAJOR<<"."<<PiKtures_VERSION_MINOR<<" by CuteKitties powered by OpenCV4 <<<<\n";
+    cout<<">>>> PiKtures v"<<PiKtures_VERSION_MAJOR<<'.'<<PiKtures_VERSION_MINOR<<'.'<<PiKtures_VERSION_PATCH<<'-'<<PiKtures_VERSION_TWEAK<<" by CuteKitties powered by OpenCV4 <<<<\n";
+    if constexpr(USE_OPENCV_GUI){
+        cv::startWindowThread();
+    }else{
+        cout<<"Attention: OpenCV high-level GUI disabled, windows are replaced with files.\n";
+    }
     while(true){
         if(image_opened){
             past_stack.push(operational_image.clone());
-            imshow(image_window, operational_image);
+            safeImshow(image_window, operational_image);
         }
         if(show_spectrum) for(int i = 0; i < 3; ++i){
             spectrum[i] = calculateSpectrum(operational_image, i);
-            imshow(spectrum_window[i], spectrum[i]);
+            safeImshow(spectrum_window[i], spectrum[i]);
         }
         if(isError(r)){
             #ifdef __linux__

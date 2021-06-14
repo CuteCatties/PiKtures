@@ -66,13 +66,19 @@ namespace PiKtures::Utility{
         return origin(cv::Rect(0, 0, origin.cols & -2, origin.rows & -2));
     }
     template<std::floating_point T>
-    inline bool checkProbability(const std::vector<T>& probabilities){
-        T sum = 0.0;
-        for(const auto& x: probabilities){
-            if(x > 1.0 || x < 0.0) throw ErrorCode::PROBABILITY_OUT_OF_RANGE;
-            if((sum += x) > 1.0) throw ErrorCode::PROBABILITIES_OUT_OF_RANGE;
+    inline static void checkProbability_helper(const T& val){
+        static std::vector<int> raiser;
+        if(val > 1.0 || val < 0.0) raiser.at(0);
+    }
+    template<std::floating_point...T>
+    bool checkProbability(const T&...probs){
+        try{
+            (checkProbability_helper(probs),...);
+        }catch(...){
+            return false;
         }
-        return false;
+        if((probs + ...) > 1.0) return false;
+        return true;
     }
     inline bool checkImage(Mat& image){
         if(image.cols < 2 || image.rows < 2) throw ErrorCode::IMAGE_TOO_SMALL;
